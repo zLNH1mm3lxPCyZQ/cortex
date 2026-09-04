@@ -1,6 +1,6 @@
-# Cortex Buffer
+# Cortex
 
-A small library for owning and operating on contiguous `float` buffers.
+A small multi-dimensional algebra library. 
 
 
 ## Build
