@@ -1,8 +1,3 @@
-# Cortex
-
-A small multi-dimensional algebra library. 
-
-
 ## Build
 
 Build and run the example program:
