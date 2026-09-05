@@ -38,3 +38,4 @@ target/%.o: src/%.c $(HEADERS)
 
 clean:
 	rm -f $(TARGET) $(TEST_TARGET) $(LIBRARY) $(LIBRARY_OBJECTS)
+	rm -rf target
