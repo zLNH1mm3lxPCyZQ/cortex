@@ -5,9 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int cx_buffer_is_valid(const cxBuffer* buf) {
-    return buf && buf->len <= SIZE_MAX / sizeof(*buf->data) &&
-           (buf->len == 0 || buf->data);
+cxBufferStatus cx_buffer_is_valid(const cxBuffer* buf) {
+    if (!buf || buf->len > SIZE_MAX / sizeof(*buf->data) ||
+        (buf->len != 0 && !buf->data)) {
+        return CX_BUFFER_INVALID_BUFFER;
+    }
+
+    return CX_BUFFER_OK;
 }
 
 cxBufferStatus cx_buffer_allocate(cxBuffer** out, size_t len) {
@@ -40,7 +44,7 @@ cxBufferStatus cx_buffer_deallocate(cxBuffer** buf) {
 
 cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value) {
     if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
-    if (!cx_buffer_is_valid(buf)) return CX_BUFFER_INVALID_BUFFER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
     if (index >= buf->len) return CX_BUFFER_OUT_OF_BOUNDS;
 
     buf->data[index] = new_value;
@@ -49,7 +53,7 @@ cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value) {
 
 cxBufferStatus cx_buffer_read(cxBuffer* buf, size_t index, float* value) {
     if (!buf || !value) return CX_BUFFER_ERR_NULL_POINTER;
-    if (!cx_buffer_is_valid(buf)) return CX_BUFFER_INVALID_BUFFER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
     if (index >= buf->len) return CX_BUFFER_OUT_OF_BOUNDS;
 
     *value = buf->data[index];
@@ -58,7 +62,8 @@ cxBufferStatus cx_buffer_read(cxBuffer* buf, size_t index, float* value) {
 
 cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_offset) {
     if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
-    if (!cx_buffer_is_valid(src) || !cx_buffer_is_valid(dst)) return CX_BUFFER_INVALID_BUFFER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK ||
+        cx_buffer_is_valid(dst) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
     if (start_offset > src->len) return CX_BUFFER_INVALID_ARG;
     if (dst->len > src->len - start_offset) return CX_BUFFER_SIZE_MISMATCH;
 
@@ -80,7 +85,8 @@ cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value) {
 
 cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other) {
     if (!buf || !*buf || !other || !*other) return CX_BUFFER_ERR_NULL_POINTER;
-    if (!cx_buffer_is_valid(*buf) || !cx_buffer_is_valid(*other)) return CX_BUFFER_INVALID_BUFFER;
+    if (cx_buffer_is_valid(*buf) != CX_BUFFER_OK ||
+        cx_buffer_is_valid(*other) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
 
     cxBuffer* temp = *buf;
     *buf = *other;
@@ -90,7 +96,7 @@ cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other) {
 
 cxBufferStatus cx_buffer_reverse(cxBuffer* buf) {
     if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
-    if (!cx_buffer_is_valid(buf)) return CX_BUFFER_INVALID_BUFFER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
 
     for (size_t start = 0, end = buf->len; start < --end; start++) {
         float temp = buf->data[start];
@@ -102,7 +108,7 @@ cxBufferStatus cx_buffer_reverse(cxBuffer* buf) {
 
 cxBufferStatus cx_buffer_print(const cxBuffer* buf) {
     if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
-    if (!cx_buffer_is_valid(buf)) return CX_BUFFER_INVALID_BUFFER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
 
     printf("cxBuffer(len=%zu) [ ", buf->len);
     for (size_t index = 0; index < buf->len; index++) {

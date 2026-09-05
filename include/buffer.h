@@ -19,6 +19,7 @@ typedef struct {
     size_t len;
 } cxBuffer;
 
+cxBufferStatus cx_buffer_is_valid(const cxBuffer* buf);
 cxBufferStatus cx_buffer_allocate(cxBuffer** out, size_t len);
 cxBufferStatus cx_buffer_deallocate(cxBuffer** buf);
 cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value);
