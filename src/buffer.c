@@ -6,8 +6,7 @@
 #include <string.h>
 
 cxBufferStatus cx_buffer_is_valid(const cxBuffer* buf) {
-    if (!buf || buf->len > SIZE_MAX / sizeof(*buf->data) ||
-        (buf->len != 0 && !buf->data)) {
+    if (!buf || !buf->data || buf->len > SIZE_MAX / sizeof(*buf->data)) {
         return CX_BUFFER_INVALID_BUFFER;
     }
 
