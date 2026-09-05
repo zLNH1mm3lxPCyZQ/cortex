@@ -13,6 +13,19 @@ cxBufferStatus cx_buffer_is_valid(const cxBuffer* buf) {
     return CX_BUFFER_OK;
 }
 
+cxBufferStatus cx_buffer_print(const cxBuffer* buf) {
+    if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    printf("cxBuffer(len=%zu) [ ", buf->len);
+    for (size_t index = 0; index < buf->len; index++) {
+        printf("%g", buf->data[index]);
+        if (index + 1 < buf->len) printf(", ");
+    }
+    printf(" ]\n");
+    return CX_BUFFER_OK;
+}
+
 cxBufferStatus cx_buffer_allocate(cxBuffer** out, size_t len) {
     if (!out) return CX_BUFFER_ERR_NULL_POINTER;
     if (*out) return CX_BUFFER_ALREADY_ALLOCATED;
@@ -70,18 +83,6 @@ cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_o
     return CX_BUFFER_OK;
 }
 
-cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value) {
-    if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
-
-    cxBufferStatus status = cx_buffer_allocate(buf, len);
-    if (status != CX_BUFFER_OK) return status;
-
-    for (size_t index = 0; index < (*buf)->len; index++) {
-        (*buf)->data[index] = value;
-    }
-    return CX_BUFFER_OK;
-}
-
 cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other) {
     if (!buf || !*buf || !other || !*other) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(*buf) != CX_BUFFER_OK ||
@@ -105,15 +106,14 @@ cxBufferStatus cx_buffer_reverse(cxBuffer* buf) {
     return CX_BUFFER_OK;
 }
 
-cxBufferStatus cx_buffer_print(const cxBuffer* buf) {
+cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value) {
     if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
-    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
 
-    printf("cxBuffer(len=%zu) [ ", buf->len);
-    for (size_t index = 0; index < buf->len; index++) {
-        printf("%g", buf->data[index]);
-        if (index + 1 < buf->len) printf(", ");
+    cxBufferStatus status = cx_buffer_allocate(buf, len);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t index = 0; index < (*buf)->len; index++) {
+        (*buf)->data[index] = value;
     }
-    printf(" ]\n");
     return CX_BUFFER_OK;
 }
