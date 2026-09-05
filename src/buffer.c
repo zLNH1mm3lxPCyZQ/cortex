@@ -12,7 +12,8 @@ static int cx_buffer_is_valid(const cxBuffer* buf) {
 
 cxBufferStatus cx_buffer_allocate(cxBuffer** out, size_t len) {
     if (!out) return CX_BUFFER_ERR_NULL_POINTER;
-    if (len == 0 || len > SIZE_MAX / sizeof(float)) return CX_BUFFER_INVALID_ARG;
+    if (*out) return CX_BUFFER_ALREADY_ALLOCATED;
+    if (len == 0 || len > SIZE_MAX / sizeof(float)) return CX_BUFFER_INVALID_LENGTH;
 
     cxBuffer* buf = malloc(sizeof(*buf));
     if (!buf) return CX_BUFFER_ALLOCATION_FAILED;
