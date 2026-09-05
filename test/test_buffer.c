@@ -170,3 +170,131 @@ TEST(buffer_read_out_of_bounds) {
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
 
+// copy buffer contents from source to destination starting at offset 0
+TEST(buffer_copy) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 10);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 10; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dest = NULL;
+    status = cx_buffer_allocate(&dest, 10);
+    ASSERT_NOT_NULL(dest);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_copy(src, dest, 0);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 10; i++) {
+        ASSERT_FLOAT_EQ(dest->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
+}
+
+// copy buffer contents from source to destination starting at a non-zero offset
+TEST(cx_buffer_copy_with_offset) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 10);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 10; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dest = NULL;
+    status = cx_buffer_allocate(&dest, 6);
+    ASSERT_NOT_NULL(dest);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_copy(src, dest, 3);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 6; i++) {
+        ASSERT_FLOAT_EQ(dest->data[i], (float)(i+3), 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
+}
+
+// copy buffer contents from source to destination starting at the last valid offset
+TEST(cx_buffer_copy_with_limit_offset) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 10);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 10; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dest = NULL;
+    status = cx_buffer_allocate(&dest, 1);
+    ASSERT_NOT_NULL(dest);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_copy(src, dest, src->len-1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 1; i++) {
+        ASSERT_FLOAT_EQ(dest->data[i], 9.0, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
+}
+
+// copy buffer contents from source to destination starting at an offset that causes out-of-bounds error
+TEST(cx_buffer_copy_with_offset_out_of_bounds) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 10);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 10; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dest = NULL;
+    status = cx_buffer_allocate(&dest, 10);
+    ASSERT_NOT_NULL(dest);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_copy(src, dest, 3);
+    ASSERT_EQ(status, CX_BUFFER_SIZE_MISMATCH);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
+}
+
+// copy buffer contents from source to destination starting at an invalid offset
+TEST(cx_buffer_copy_with_invalid_offset) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 10);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 10; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dest = NULL;
+    status = cx_buffer_allocate(&dest, 10);
+    ASSERT_NOT_NULL(dest);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_copy(src, dest, 10);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_ARG);
+    status = cx_buffer_copy(src, dest, 11);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_ARG);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
+}

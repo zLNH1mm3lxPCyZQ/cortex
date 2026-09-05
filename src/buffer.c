@@ -63,7 +63,7 @@ cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_o
     if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(src) != CX_BUFFER_OK ||
         cx_buffer_is_valid(dst) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
-    if (start_offset > src->len) return CX_BUFFER_INVALID_ARG;
+    if (start_offset >= src->len) return CX_BUFFER_INVALID_ARG;
     if (dst->len > src->len - start_offset) return CX_BUFFER_SIZE_MISMATCH;
 
     memmove(dst->data, src->data + start_offset, dst->len * sizeof(*dst->data));
