@@ -299,6 +299,7 @@ TEST(buffer_copy_with_invalid_offset) {
     ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
 }
 
+// copy buffer contents from source to itself should return invalid argument
 TEST(buffer_copy_with_self) {
     cxBuffer* buf = NULL;
     cxBufferStatus status = cx_buffer_allocate(&buf, 5);
@@ -319,6 +320,7 @@ TEST(buffer_copy_with_self) {
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
 
+// swap the contents of two buffers
 TEST(buffer_swap) {
     cxBuffer* buf1 = NULL;
     cxBuffer* buf2 = NULL;
@@ -347,6 +349,7 @@ TEST(buffer_swap) {
     ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
 }
 
+// swap buffers when one or both pointers are null should return error
 TEST(buffer_swap_with_null_pointers) {
     cxBuffer* buf1 = NULL;
     cxBuffer* buf2 = NULL;
@@ -373,6 +376,7 @@ TEST(buffer_swap_with_null_pointers) {
     ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
 }
 
+// swap buffers of different sizes should still succeed
 TEST(buffer_swap_with_different_sizes) {
     cxBuffer* buf1 = NULL;
     cxBuffer* buf2 = NULL;
@@ -391,6 +395,7 @@ TEST(buffer_swap_with_different_sizes) {
     ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
 }
 
+// swap a buffer with itself should return invalid argument
 TEST(buffer_swap_with_self) {
     cxBuffer* buf = NULL;
     cxBufferStatus status = cx_buffer_allocate(&buf, 5);
@@ -402,4 +407,52 @@ TEST(buffer_swap_with_self) {
     ASSERT_NOT_NULL(buf);
 
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// reverse the contents of a buffer
+TEST(buffer_reverse) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        buf->data[i] = (float)i;
+    }
+
+    status = cx_buffer_reverse(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], (float)(4 - i), 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// reverse a buffer when the pointer is null should return error
+TEST(buffer_reverse_with_null_pointer) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_reverse(buf);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// fill a buffer with a specific value
+TEST(buffer_full) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_full(&buf, 5, 3.14f);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], 3.14f, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// fill a buffer when the pointer is null should return error
+TEST(buffer_full_with_null_pointer) {
+    cxBufferStatus status = cx_buffer_full(NULL, 5, 3.14f);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
 }
