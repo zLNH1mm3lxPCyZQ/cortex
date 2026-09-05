@@ -74,6 +74,7 @@ cxBufferStatus cx_buffer_read(cxBuffer* buf, size_t index, float* value) {
 
 cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_offset) {
     if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (src == dst) return CX_BUFFER_INVALID_ARG;
     if (cx_buffer_is_valid(src) != CX_BUFFER_OK ||
         cx_buffer_is_valid(dst) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
     if (start_offset >= src->len) return CX_BUFFER_INVALID_ARG;
@@ -85,6 +86,7 @@ cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_o
 
 cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other) {
     if (!buf || !*buf || !other || !*other) return CX_BUFFER_ERR_NULL_POINTER;
+    if (buf == other || *buf == *other) return CX_BUFFER_INVALID_ARG;
     if (cx_buffer_is_valid(*buf) != CX_BUFFER_OK ||
         cx_buffer_is_valid(*other) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
 

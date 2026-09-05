@@ -198,7 +198,7 @@ TEST(buffer_copy) {
 }
 
 // copy buffer contents from source to destination starting at a non-zero offset
-TEST(cx_buffer_copy_with_offset) {
+TEST(buffer_copy_with_offset) {
     cxBuffer* src = NULL;
     cxBufferStatus status = cx_buffer_allocate(&src, 10);
     ASSERT_NOT_NULL(src);
@@ -225,7 +225,7 @@ TEST(cx_buffer_copy_with_offset) {
 }
 
 // copy buffer contents from source to destination starting at the last valid offset
-TEST(cx_buffer_copy_with_limit_offset) {
+TEST(buffer_copy_with_limit_offset) {
     cxBuffer* src = NULL;
     cxBufferStatus status = cx_buffer_allocate(&src, 10);
     ASSERT_NOT_NULL(src);
@@ -252,7 +252,7 @@ TEST(cx_buffer_copy_with_limit_offset) {
 }
 
 // copy buffer contents from source to destination starting at an offset that causes out-of-bounds error
-TEST(cx_buffer_copy_with_offset_out_of_bounds) {
+TEST(buffer_copy_with_offset_out_of_bounds) {
     cxBuffer* src = NULL;
     cxBufferStatus status = cx_buffer_allocate(&src, 10);
     ASSERT_NOT_NULL(src);
@@ -275,7 +275,7 @@ TEST(cx_buffer_copy_with_offset_out_of_bounds) {
 }
 
 // copy buffer contents from source to destination starting at an invalid offset
-TEST(cx_buffer_copy_with_invalid_offset) {
+TEST(buffer_copy_with_invalid_offset) {
     cxBuffer* src = NULL;
     cxBufferStatus status = cx_buffer_allocate(&src, 10);
     ASSERT_NOT_NULL(src);
@@ -297,4 +297,109 @@ TEST(cx_buffer_copy_with_invalid_offset) {
 
     ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
     ASSERT_EQ(cx_buffer_deallocate(&dest), CX_BUFFER_OK);
+}
+
+TEST(buffer_copy_with_self) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        buf->data[i] = (float)i;
+    }
+
+    status = cx_buffer_copy(buf, buf, 0);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_ARG);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+TEST(buffer_swap) {
+    cxBuffer* buf1 = NULL;
+    cxBuffer* buf2 = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf1, 5);
+    ASSERT_NOT_NULL(buf1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_allocate(&buf2, 5);
+    ASSERT_NOT_NULL(buf2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        buf1->data[i] = (float)i;
+        buf2->data[i] = (float)(i + 10);
+    }
+
+    status = cx_buffer_swap(&buf1, &buf2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf1->data[i], (float)(i + 10), 1e-5);
+        ASSERT_FLOAT_EQ(buf2->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf1), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
+}
+
+TEST(buffer_swap_with_null_pointers) {
+    cxBuffer* buf1 = NULL;
+    cxBuffer* buf2 = NULL;
+
+    cxBufferStatus status = cx_buffer_swap(&buf1, &buf2);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    status = cx_buffer_allocate(&buf1, 5);
+    ASSERT_NOT_NULL(buf1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_swap(&buf1, &buf2);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf1), CX_BUFFER_OK);
+
+    status = cx_buffer_allocate(&buf2, 5);
+    ASSERT_NOT_NULL(buf2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_swap(&buf1, &buf2);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
+}
+
+TEST(buffer_swap_with_different_sizes) {
+    cxBuffer* buf1 = NULL;
+    cxBuffer* buf2 = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf1, 5);
+    ASSERT_NOT_NULL(buf1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_allocate(&buf2, 10);
+    ASSERT_NOT_NULL(buf2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_swap(&buf1, &buf2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf1), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
+}
+
+TEST(buffer_swap_with_self) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_swap(&buf, &buf);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_ARG);
+    ASSERT_NOT_NULL(buf);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
