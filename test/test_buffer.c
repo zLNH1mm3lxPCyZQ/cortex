@@ -72,7 +72,7 @@ TEST(buffer_deallocation) {
 }
 
 // cannot deallocate a buffer pointer thats already null
-TEST(buffer_deallocation_already_null) {
+TEST(buffer_deallocation_null_pointer) {
     cxBuffer* buf = NULL;
     cxBufferStatus status = cx_buffer_deallocate(&buf);
     ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
@@ -119,3 +119,54 @@ TEST(buffer_write_out_of_bounds) {
     
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
+
+// buffer read common use
+TEST(buffer_read) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 10);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    buf->data[0] = 9.6;
+    buf->data[4] = 3.0;
+    buf->data[9] = -8.2;
+
+    float res;
+    status = cx_buffer_read(buf, 0, &res);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FLOAT_EQ(res, 9.6, 1e-5);
+    status = cx_buffer_read(buf, 4, &res);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FLOAT_EQ(res, 3.0, 1e-5);
+    status = cx_buffer_read(buf, 9, &res);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FLOAT_EQ(res, -8.2, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot read from a null buffer pointer
+TEST(buffer_read_null_pointer) {
+    cxBuffer* buf = NULL;
+    float res;
+    cxBufferStatus status = cx_buffer_read(buf, 0, &res);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// cannot read out of bounds on a buffer
+TEST(buffer_read_out_of_bounds) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 10);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    float res;
+    status = cx_buffer_read(buf, 10, &res);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+
+    status = cx_buffer_read(buf, 1999, &res);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
