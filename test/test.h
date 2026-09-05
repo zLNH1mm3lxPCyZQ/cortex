@@ -53,6 +53,8 @@ typedef void (*test__fn)(void);
 
 typedef struct test__entry {
     const char *name;
+    const char *file;
+    int line;
     test__fn fn;
     struct test__entry *next;
 } test__entry;
@@ -93,7 +95,7 @@ void test__register(test__entry *e) {
 
 #define TEST(name)                                            \
     static void name(void);                                   \
-    static test__entry test__entry_##name = { #name, name, NULL }; \
+    static test__entry test__entry_##name = { #name, __FILE__, __LINE__, name, NULL }; \
     __attribute__((constructor)) static void test__reg_##name(void) { \
         test__register(&test__entry_##name);                   \
     }                                                          \
@@ -109,7 +111,7 @@ void test__register(test__entry *e) {
             test__printf(TEST_COLOR_RED "FAIL %s\n" TEST_COLOR_RESET, #name); \
         } else {                                              \
             test__pass_count++;                               \
-            test__printf(TEST_COLOR_GREEN "PASS %s\n" TEST_COLOR_RESET, #name); \
+            test__printf(TEST_COLOR_GREEN "PASS %s (%s:%d)\n" TEST_COLOR_RESET, #name, __FILE__, __LINE__); \
         }                                                     \
     } while (0)
 
@@ -125,7 +127,8 @@ void test__run_all(void) {
             test__printf(TEST_COLOR_RED "FAIL %s\n" TEST_COLOR_RESET, e->name);
         } else {
             test__pass_count++;
-            test__printf(TEST_COLOR_GREEN "PASS %s\n" TEST_COLOR_RESET, e->name);
+            test__printf(TEST_COLOR_GREEN "PASS %s (%s:%d)\n" TEST_COLOR_RESET,
+                         e->name, e->file, e->line);
         }
         e = e->next;
     }
