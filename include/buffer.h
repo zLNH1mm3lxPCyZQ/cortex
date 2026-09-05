@@ -29,3 +29,5 @@ cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_o
 cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other);
 cxBufferStatus cx_buffer_reverse(cxBuffer* buf);
 cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value);
+cxBufferStatus cx_buffer_fill(cxBuffer* buf, float value);
+cxBufferStatus cx_buffer_clear(cxBuffer* buf);

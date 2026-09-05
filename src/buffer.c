@@ -119,3 +119,24 @@ cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value) {
     }
     return CX_BUFFER_OK;
 }
+
+cxBufferStatus cx_buffer_fill(cxBuffer* buf, float value) {
+    if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t index = 0; index < buf->len; index++) {
+        buf->data[index] = value;
+    }
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_clear(cxBuffer* buf) {
+    if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t index = 0; index < buf->len; index++) {
+        buf->data[index] = 0.0f;
+    }
+    return CX_BUFFER_OK;
+}
+

@@ -437,7 +437,7 @@ TEST(buffer_reverse_with_null_pointer) {
     ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
 }
 
-// fill a buffer with a specific value
+// allocate a buffer with a specific value
 TEST(buffer_full) {
     cxBuffer* buf = NULL;
     cxBufferStatus status = cx_buffer_full(&buf, 5, 3.14f);
@@ -451,8 +451,53 @@ TEST(buffer_full) {
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
 
-// fill a buffer when the pointer is null should return error
+// allocate a buffer with a specific value when the pointer is null should return error
 TEST(buffer_full_with_null_pointer) {
     cxBufferStatus status = cx_buffer_full(NULL, 5, 3.14f);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// fill an existing buffer with a specific value
+TEST(buffer_fill) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_fill(buf, 3.14f);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], 3.14f, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+TEST(buffer_fill_with_null_pointer) {
+    cxBufferStatus status = cx_buffer_fill(NULL, 3.14f);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// clear an existing buffer
+TEST(buffer_clear) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_clear(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], 0.0f, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// clear a buffer when the pointer is null should return error
+TEST(buffer_clear_with_null_pointer) {
+    cxBufferStatus status = cx_buffer_clear(NULL);
     ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
 }
