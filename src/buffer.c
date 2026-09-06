@@ -86,7 +86,7 @@ cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value) {
     return CX_BUFFER_OK;
 }
 
-cxBufferStatus cx_buffer_read(cxBuffer* buf, size_t index, float* value) {
+cxBufferStatus cx_buffer_read(const cxBuffer* buf, size_t index, float* value) {
     if (!buf || !value) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
     if (index >= buf->len) return CX_BUFFER_OUT_OF_BOUNDS;

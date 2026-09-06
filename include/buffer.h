@@ -31,7 +31,7 @@ cxBufferStatus cx_buffer_to_array(const cxBuffer* src, float** dst);
 cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value);
 cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value);
 cxBufferStatus cx_buffer_fill(cxBuffer* buf, float value);
-cxBufferStatus cx_buffer_read(cxBuffer* buf, size_t index, float* value);
+cxBufferStatus cx_buffer_read(const cxBuffer* buf, size_t index, float* value);
 cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_offset);
 cxBufferStatus cx_buffer_clone(const cxBuffer* src, cxBuffer** dst);
 cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other);
