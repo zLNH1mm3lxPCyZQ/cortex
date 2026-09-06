@@ -463,6 +463,63 @@ cxBufferStatus cx_buffer_load(cxBuffer** buf, const char* path) {
     return CX_BUFFER_OK;
 }
 
+cxBufferStatus cx_buffer_save_txt(const cxBuffer* buf, const char* path) {
+    if (!buf || !path) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    FILE* file = fopen(path, "w");
+    if (!file) return CX_BUFFER_IO_ERROR;
+
+    cxBufferStatus status = CX_BUFFER_OK;
+    for (size_t i = 0; i < buf->len; i++) {
+        // %.9g round-trips a float exactly
+        if (fprintf(file, "%.9g\n", (double)buf->data[i]) < 0) {
+            status = CX_BUFFER_IO_ERROR;
+            break;
+        }
+    }
+
+    fclose(file);
+    return status;
+}
+
+cxBufferStatus cx_buffer_load_txt(cxBuffer** buf, const char* path) {
+    if (!buf || !path) return CX_BUFFER_ERR_NULL_POINTER;
+    if (*buf) return CX_BUFFER_ALREADY_ALLOCATED;
+
+    FILE* file = fopen(path, "r");
+    if (!file) return CX_BUFFER_IO_ERROR;
+
+    size_t len = 0;
+    float scratch;
+    while (fscanf(file, "%f", &scratch) == 1) len++;
+
+    if (len == 0) {
+        fclose(file);
+        return CX_BUFFER_IO_ERROR;
+    }
+
+    // cx_buffer_allocate rejects a len too large to safely multiply by sizeof(float)
+    cxBufferStatus status = cx_buffer_allocate(buf, len);
+    if (status != CX_BUFFER_OK) {
+        fclose(file);
+        return status;
+    }
+
+    rewind(file);
+    // a file that changed between the count and read passes must not populate partial data
+    for (size_t i = 0; i < len; i++) {
+        if (fscanf(file, "%f", &(*buf)->data[i]) != 1) {
+            cx_buffer_deallocate(buf);
+            fclose(file);
+            return CX_BUFFER_IO_ERROR;
+        }
+    }
+
+    fclose(file);
+    return CX_BUFFER_OK;
+}
+
 cxBufferStatus cx_buffer_length(const cxBuffer* buf, size_t* length) {
     if (!buf || !length) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;

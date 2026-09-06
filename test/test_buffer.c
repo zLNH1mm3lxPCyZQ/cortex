@@ -1898,6 +1898,113 @@ TEST(buffer_load_zero_length) {
     remove(TEST_SAVE_LOAD_PATH);
 }
 
+// round trip a buffer to a text file and back
+TEST(buffer_save_load_txt_round_trip) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 4), CX_BUFFER_OK);
+    buf->data[0] = 1.5f;
+    buf->data[1] = -2.25f;
+    buf->data[2] = 0.0f;
+    buf->data[3] = 100.125f;
+
+    cxBufferStatus status = cx_buffer_save_txt(buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    cxBuffer* loaded = NULL;
+    status = cx_buffer_load_txt(&loaded, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(loaded);
+
+    bool equal = false;
+    ASSERT_EQ(cx_buffer_equal(buf, loaded, &equal), CX_BUFFER_OK);
+    ASSERT_TRUE(equal);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&loaded), CX_BUFFER_OK);
+    remove(TEST_SAVE_LOAD_PATH);
+}
+
+// cannot save_txt with a null buffer or path
+TEST(buffer_save_txt_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_save_txt(NULL, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_save_txt(buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// saving text to a path that cannot be opened returns an io error
+TEST(buffer_save_txt_invalid_path) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_save_txt(buf, "target/nonexistent_dir/out.txt");
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot load_txt with a null destination pointer or path
+TEST(buffer_load_txt_null_pointer) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load_txt(NULL, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_load_txt(&buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// cannot load_txt into a destination pointer that is already allocated
+TEST(buffer_load_txt_already_allocated) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_load_txt(&buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// loading text from a path that does not exist returns an io error
+TEST(buffer_load_txt_nonexistent_path) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load_txt(&buf, "target/does_not_exist.txt");
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+    ASSERT_NULL(buf);
+}
+
+// loading an empty text file is rejected
+TEST(buffer_load_txt_empty_file) {
+    FILE* file = fopen(TEST_SAVE_LOAD_PATH, "w");
+    ASSERT_NOT_NULL(file);
+    fclose(file);
+
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load_txt(&buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+    ASSERT_NULL(buf);
+
+    remove(TEST_SAVE_LOAD_PATH);
+}
+
+// loading text with no parseable numbers is rejected
+TEST(buffer_load_txt_no_numbers) {
+    FILE* file = fopen(TEST_SAVE_LOAD_PATH, "w");
+    ASSERT_NOT_NULL(file);
+    fprintf(file, "not a number\n");
+    fclose(file);
+
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load_txt(&buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+    ASSERT_NULL(buf);
+
+    remove(TEST_SAVE_LOAD_PATH);
+}
+
 #undef TEST_SAVE_LOAD_PATH
 
 // length reports the number of elements in a buffer
