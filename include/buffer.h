@@ -33,3 +33,8 @@ cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other);
 cxBufferStatus cx_buffer_reverse(cxBuffer* buf);
 cxBufferStatus cx_buffer_full(cxBuffer** buf, size_t len, float value);
 cxBufferStatus cx_buffer_fill(cxBuffer* buf, float value);
+cxBufferStatus cx_buffer_resize(cxBuffer* buf, size_t new_len);
+cxBufferStatus cx_buffer_concat(const cxBuffer* buf1, const cxBuffer* buf2, cxBuffer** dst);
+cxBufferStatus cx_buffer_append(cxBuffer* buf, const cxBuffer* other);
+cxBufferStatus cx_buffer_insert(cxBuffer* buf, size_t index, const cxBuffer* other);
+cxBufferStatus cx_buffer_remove(cxBuffer* buf, size_t index, size_t count);

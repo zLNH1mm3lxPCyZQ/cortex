@@ -1,6 +1,7 @@
 #include "test.h"
 #include "buffer.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 
 // a null pointer should always be considered as invalid
@@ -625,4 +626,476 @@ TEST(buffer_fill) {
 TEST(buffer_fill_with_null_pointer) {
     cxBufferStatus status = cx_buffer_fill(NULL, 3.14f);
     ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// grow a buffer, preserving existing contents
+TEST(buffer_resize_grow) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        buf->data[i] = (float)i;
+    }
+
+    status = cx_buffer_resize(buf, 10);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)10);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// shrink a buffer, preserving the remaining contents
+TEST(buffer_resize_shrink) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        buf->data[i] = (float)i;
+    }
+
+    status = cx_buffer_resize(buf, 2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)2);
+
+    for (int i = 0; i < 2; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot resize a null buffer pointer
+TEST(buffer_resize_null_pointer) {
+    cxBufferStatus status = cx_buffer_resize(NULL, 5);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// cannot resize a buffer to zero length
+TEST(buffer_resize_zero_length) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_resize(buf, 0);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_EQ(buf->len, (size_t)5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot resize a buffer past SIZE_MAX/sizeof(float) elements
+TEST(buffer_resize_length_overflow) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 5);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_resize(buf, SIZE_MAX);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_EQ(buf->len, (size_t)5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// concatenate two buffers into a freshly allocated destination
+TEST(buffer_concat) {
+    cxBuffer* buf1 = NULL;
+    cxBuffer* buf2 = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf1, 3);
+    ASSERT_NOT_NULL(buf1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    status = cx_buffer_allocate(&buf2, 2);
+    ASSERT_NOT_NULL(buf2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 3; i++) buf1->data[i] = (float)i;
+    for (int i = 0; i < 2; i++) buf2->data[i] = (float)(i + 10);
+
+    cxBuffer* dst = NULL;
+    status = cx_buffer_concat(buf1, buf2, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(dst->len, (size_t)5);
+
+    ASSERT_FLOAT_EQ(dst->data[0], 0.0f, 1e-5);
+    ASSERT_FLOAT_EQ(dst->data[1], 1.0f, 1e-5);
+    ASSERT_FLOAT_EQ(dst->data[2], 2.0f, 1e-5);
+    ASSERT_FLOAT_EQ(dst->data[3], 10.0f, 1e-5);
+    ASSERT_FLOAT_EQ(dst->data[4], 11.0f, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf1), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// cannot concat with a null source or destination pointer
+TEST(buffer_concat_null_pointer) {
+    cxBuffer* buf1 = NULL;
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf1, 3);
+    ASSERT_NOT_NULL(buf1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_concat(NULL, buf1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_concat(buf1, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_concat(buf1, buf1, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf1), CX_BUFFER_OK);
+}
+
+// cannot concat into a destination pointer that is already allocated
+TEST(buffer_concat_already_allocated) {
+    cxBuffer* buf1 = NULL;
+    cxBuffer* buf2 = NULL;
+    cxBuffer* dst = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf1, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&buf2, 2), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&dst, 1), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_concat(buf1, buf2, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf1), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&buf2), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// a buffer with len == SIZE_MAX is rejected by is_valid before lengths are summed
+TEST(buffer_concat_length_overflow) {
+    cxBuffer buf1;
+    cxBuffer buf2;
+    float data = 0.0f;
+    buf1.data = &data;
+    buf1.len = SIZE_MAX;
+    buf2.data = &data;
+    buf2.len = 1;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_concat(&buf1, &buf2, &dst);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_BUFFER);
+    ASSERT_NULL(dst);
+}
+
+// append the contents of one buffer onto another
+TEST(buffer_append) {
+    cxBuffer* buf = NULL;
+    cxBuffer* other = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&other, 2), CX_BUFFER_OK);
+
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+    for (int i = 0; i < 2; i++) other->data[i] = (float)(i + 10);
+
+    cxBufferStatus status = cx_buffer_append(buf, other);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)5);
+
+    ASSERT_FLOAT_EQ(buf->data[0], 0.0f, 1e-5);
+    ASSERT_FLOAT_EQ(buf->data[1], 1.0f, 1e-5);
+    ASSERT_FLOAT_EQ(buf->data[2], 2.0f, 1e-5);
+    ASSERT_FLOAT_EQ(buf->data[3], 10.0f, 1e-5);
+    ASSERT_FLOAT_EQ(buf->data[4], 11.0f, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&other), CX_BUFFER_OK);
+}
+
+// cannot append with a null buffer or source pointer
+TEST(buffer_append_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_append(NULL, buf);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_append(buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// appending a buffer to itself is rejected since resizing may relocate its data
+TEST(buffer_append_with_self) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+
+    cxBufferStatus status = cx_buffer_append(buf, buf);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_ARG);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// a buffer with len == SIZE_MAX is rejected by is_valid before lengths are summed
+TEST(buffer_append_length_overflow) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBuffer other;
+    float data = 0.0f;
+    other.data = &data;
+    other.len = SIZE_MAX;
+
+    cxBufferStatus status = cx_buffer_append(buf, &other);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_BUFFER);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// insert the contents of one buffer into the middle of another
+TEST(buffer_insert) {
+    cxBuffer* buf = NULL;
+    cxBuffer* other = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 4), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&other, 2), CX_BUFFER_OK);
+
+    for (int i = 0; i < 4; i++) buf->data[i] = (float)i;
+    other->data[0] = 100.0f;
+    other->data[1] = 101.0f;
+
+    cxBufferStatus status = cx_buffer_insert(buf, 2, other);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)6);
+
+    float expected[6] = { 0.0f, 1.0f, 100.0f, 101.0f, 2.0f, 3.0f };
+    for (int i = 0; i < 6; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&other), CX_BUFFER_OK);
+}
+
+// insert at the very start of the buffer
+TEST(buffer_insert_at_start) {
+    cxBuffer* buf = NULL;
+    cxBuffer* other = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&other, 1), CX_BUFFER_OK);
+
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+    other->data[0] = 100.0f;
+
+    cxBufferStatus status = cx_buffer_insert(buf, 0, other);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    float expected[4] = { 100.0f, 0.0f, 1.0f, 2.0f };
+    for (int i = 0; i < 4; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&other), CX_BUFFER_OK);
+}
+
+// insert at the very end of the buffer
+TEST(buffer_insert_at_end) {
+    cxBuffer* buf = NULL;
+    cxBuffer* other = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&other, 1), CX_BUFFER_OK);
+
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+    other->data[0] = 100.0f;
+
+    cxBufferStatus status = cx_buffer_insert(buf, 3, other);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    float expected[4] = { 0.0f, 1.0f, 2.0f, 100.0f };
+    for (int i = 0; i < 4; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&other), CX_BUFFER_OK);
+}
+
+// cannot insert with a null buffer or source pointer
+TEST(buffer_insert_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_insert(NULL, 0, buf);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_insert(buf, 0, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot insert at an index past the end of the buffer
+TEST(buffer_insert_out_of_bounds) {
+    cxBuffer* buf = NULL;
+    cxBuffer* other = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&other, 1), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_insert(buf, 4, other);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&other), CX_BUFFER_OK);
+}
+
+// inserting a buffer into itself is rejected since resizing may relocate its data
+TEST(buffer_insert_with_self) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+
+    cxBufferStatus status = cx_buffer_insert(buf, 1, buf);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_ARG);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// a buffer with len == SIZE_MAX is rejected by is_valid before lengths are summed
+TEST(buffer_insert_length_overflow) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBuffer other;
+    float data = 0.0f;
+    other.data = &data;
+    other.len = SIZE_MAX;
+
+    cxBufferStatus status = cx_buffer_insert(buf, 0, &other);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_BUFFER);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// remove a range from the middle of a buffer
+TEST(buffer_remove) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    cxBufferStatus status = cx_buffer_remove(buf, 1, 2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    float expected[3] = { 0.0f, 3.0f, 4.0f };
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// remove a single element from a buffer
+TEST(buffer_remove_single) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+
+    cxBufferStatus status = cx_buffer_remove(buf, 1, 1);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)2);
+
+    ASSERT_FLOAT_EQ(buf->data[0], 0.0f, 1e-5);
+    ASSERT_FLOAT_EQ(buf->data[1], 2.0f, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// remove up to the last element of a buffer
+TEST(buffer_remove_to_end) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    cxBufferStatus status = cx_buffer_remove(buf, 3, 2);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot remove from a null buffer pointer
+TEST(buffer_remove_null_pointer) {
+    cxBufferStatus status = cx_buffer_remove(NULL, 0, 1);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// cannot remove starting at an index past the end of the buffer
+TEST(buffer_remove_out_of_bounds) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_remove(buf, 3, 1);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+    status = cx_buffer_remove(buf, 10, 1);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot remove a zero-length range
+TEST(buffer_remove_zero_count) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_remove(buf, 0, 0);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot remove a range that extends past the end of the buffer
+TEST(buffer_remove_count_out_of_bounds) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_remove(buf, 3, 3);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_EQ(buf->len, (size_t)5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// remove refuses a count that would wrap size_t when added to index
+TEST(buffer_remove_count_wraparound) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_remove(buf, 2, SIZE_MAX - 1);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_EQ(buf->len, (size_t)5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot remove every element via remove; use deallocate instead
+TEST(buffer_remove_entire_buffer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_remove(buf, 0, 3);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }

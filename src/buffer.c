@@ -163,3 +163,82 @@ cxBufferStatus cx_buffer_fill(cxBuffer* buf, float value) {
     }
     return CX_BUFFER_OK;
 }
+
+cxBufferStatus cx_buffer_resize(cxBuffer* buf, size_t new_len) {
+    if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (new_len == 0) { return CX_BUFFER_INVALID_LENGTH; }
+    if (new_len > SIZE_MAX / sizeof(*buf->data)) return CX_BUFFER_INVALID_LENGTH;
+
+    float* new_data = (float*)realloc(buf->data, new_len * sizeof(*buf->data));
+    if (!new_data) return CX_BUFFER_ALLOCATION_FAILED;
+
+    buf->data = new_data;
+    buf->len = new_len;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_concat(const cxBuffer* buf1, const cxBuffer* buf2, cxBuffer** dst) {
+    if (!buf1 || !buf2 || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf1) != CX_BUFFER_OK || cx_buffer_is_valid(buf2) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+    if (buf1->len > SIZE_MAX - buf2->len) return CX_BUFFER_INVALID_LENGTH;
+
+    cxBufferStatus status = cx_buffer_allocate(dst, buf1->len + buf2->len);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t i = 0; i < buf1->len; i++) {
+        (*dst)->data[i] = buf1->data[i];
+    }
+    for (size_t i = 0; i < buf2->len; i++) {
+        (*dst)->data[buf1->len + i] = buf2->data[i];
+    }
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_append(cxBuffer* buf, const cxBuffer* other) {
+    if (!buf || !other) return CX_BUFFER_ERR_NULL_POINTER;
+    if (buf == other) return CX_BUFFER_INVALID_ARG;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK || cx_buffer_is_valid(other) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (buf->len > SIZE_MAX - other->len) return CX_BUFFER_INVALID_LENGTH;
+
+    cxBufferStatus status = cx_buffer_resize(buf, buf->len + other->len);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t i = 0; i < other->len; i++) {
+        buf->data[buf->len - other->len + i] = other->data[i];
+    }
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_insert(cxBuffer* buf, size_t index, const cxBuffer* other) {
+    if (!buf || !other) return CX_BUFFER_ERR_NULL_POINTER;
+    if (buf == other) return CX_BUFFER_INVALID_ARG;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK || cx_buffer_is_valid(other) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (index > buf->len) return CX_BUFFER_OUT_OF_BOUNDS;
+    if (buf->len > SIZE_MAX - other->len) return CX_BUFFER_INVALID_LENGTH;
+
+    cxBufferStatus status = cx_buffer_resize(buf, buf->len + other->len);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t i = buf->len - other->len; i > index; i--) {
+        buf->data[i + other->len - 1] = buf->data[i - 1];
+    }
+    for (size_t i = 0; i < other->len; i++) {
+        buf->data[index + i] = other->data[i];
+    }
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_remove(cxBuffer* buf, size_t index, size_t count) {
+    if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (index >= buf->len) return CX_BUFFER_OUT_OF_BOUNDS;
+    if (count == 0 || count > buf->len - index) return CX_BUFFER_INVALID_LENGTH;
+    if (count == buf->len) return CX_BUFFER_INVALID_LENGTH;
+
+    for (size_t i = index; i < buf->len - count; i++) {
+        buf->data[i] = buf->data[i + count];
+    }
+    return cx_buffer_resize(buf, buf->len - count);
+}
