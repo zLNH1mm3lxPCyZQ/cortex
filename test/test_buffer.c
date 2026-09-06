@@ -320,6 +320,74 @@ TEST(buffer_copy_with_self) {
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
 
+// clone a buffer into a new buffer
+TEST(buffer_clone) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 5);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dst = NULL;
+    status = cx_buffer_clone(src, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(dst);
+
+    for (int i = 0; i < 5; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// clone a buffer into an already allocated destination buffer should return invalid argument
+TEST(buffer_clone_into_allocated) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 5);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 5; i++) {
+        src->data[i] = (float)i;
+    }
+
+    cxBuffer* dst = NULL;
+    status = cx_buffer_allocate(&dst, 5);
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_clone(src, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// clone a buffer with a null source should return error
+TEST(buffer_clone_with_null_source) {
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_clone(NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    ASSERT_NULL(dst);
+}
+
+// clone a buffer with a null destination pointer should return error
+TEST(buffer_clone_with_null_destination) {
+    cxBuffer* src = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&src, 5);
+    ASSERT_NOT_NULL(src);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_clone(src, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
 // swap the contents of two buffers
 TEST(buffer_swap) {
     cxBuffer* buf1 = NULL;

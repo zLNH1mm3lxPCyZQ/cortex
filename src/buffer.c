@@ -84,6 +84,17 @@ cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_o
     return CX_BUFFER_OK;
 }
 
+cxBufferStatus cx_buffer_clone(const cxBuffer* src, cxBuffer** dst) {
+    if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+
+    cxBufferStatus status = cx_buffer_allocate(dst, src->len);
+    if (status != CX_BUFFER_OK) return status;
+
+    return cx_buffer_copy(src, *dst, 0);
+}
+
 cxBufferStatus cx_buffer_swap(cxBuffer** buf, cxBuffer** other) {
     if (!buf || !*buf || !other || !*other) return CX_BUFFER_ERR_NULL_POINTER;
     if (buf == other || *buf == *other) return CX_BUFFER_INVALID_ARG;
