@@ -2,6 +2,7 @@
 #include "buffer.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 // a null pointer should always be considered as invalid
@@ -1096,6 +1097,572 @@ TEST(buffer_remove_entire_buffer) {
     cxBufferStatus status = cx_buffer_remove(buf, 0, 3);
     ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
     ASSERT_EQ(buf->len, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// find the index of a value present in the buffer
+TEST(buffer_find) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    size_t index = 0;
+    cxBufferStatus status = cx_buffer_find(buf, 3.0f, &index);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(index, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// searching for a value that is not present returns not found
+TEST(buffer_find_not_found) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    size_t index = 0;
+    cxBufferStatus status = cx_buffer_find(buf, 99.0f, &index);
+    ASSERT_EQ(status, CX_BUFFER_NOT_FOUND);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot find with a null buffer or output pointer
+TEST(buffer_find_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+
+    size_t index = 0;
+    cxBufferStatus status = cx_buffer_find(NULL, 1.0f, &index);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_find(buf, 1.0f, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// contains reports true when the value is present
+TEST(buffer_contains_true) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    bool found = false;
+    cxBufferStatus status = cx_buffer_contains(buf, 4.0f, &found);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_TRUE(found);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// contains reports false when the value is absent
+TEST(buffer_contains_false) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    bool found = true;
+    cxBufferStatus status = cx_buffer_contains(buf, 99.0f, &found);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FALSE(found);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot check contains with a null buffer or output pointer
+TEST(buffer_contains_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+
+    bool found = false;
+    cxBufferStatus status = cx_buffer_contains(NULL, 1.0f, &found);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_contains(buf, 1.0f, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// two buffers with identical contents are equal
+TEST(buffer_equal_true) {
+    cxBuffer* a = NULL;
+    cxBuffer* b = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&a, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&b, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) { a->data[i] = (float)i; b->data[i] = (float)i; }
+
+    bool equal = false;
+    cxBufferStatus status = cx_buffer_equal(a, b, &equal);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_TRUE(equal);
+
+    ASSERT_EQ(cx_buffer_deallocate(&a), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&b), CX_BUFFER_OK);
+}
+
+// buffers with different lengths are not equal
+TEST(buffer_equal_different_lengths) {
+    cxBuffer* a = NULL;
+    cxBuffer* b = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&a, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&b, 4), CX_BUFFER_OK);
+
+    bool equal = true;
+    cxBufferStatus status = cx_buffer_equal(a, b, &equal);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FALSE(equal);
+
+    ASSERT_EQ(cx_buffer_deallocate(&a), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&b), CX_BUFFER_OK);
+}
+
+// buffers with the same length but different contents are not equal
+TEST(buffer_equal_different_contents) {
+    cxBuffer* a = NULL;
+    cxBuffer* b = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&a, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&b, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) { a->data[i] = (float)i; b->data[i] = (float)i; }
+    b->data[2] = 99.0f;
+
+    bool equal = true;
+    cxBufferStatus status = cx_buffer_equal(a, b, &equal);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FALSE(equal);
+
+    ASSERT_EQ(cx_buffer_deallocate(&a), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&b), CX_BUFFER_OK);
+}
+
+// a buffer is always equal to itself
+TEST(buffer_equal_with_self) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) buf->data[i] = (float)i;
+
+    bool equal = false;
+    cxBufferStatus status = cx_buffer_equal(buf, buf, &equal);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_TRUE(equal);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot compare with a null buffer or output pointer
+TEST(buffer_equal_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    bool equal = false;
+    cxBufferStatus status = cx_buffer_equal(NULL, buf, &equal);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_equal(buf, NULL, &equal);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_equal(buf, buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// slice a sub-range from the middle of a buffer
+TEST(buffer_slice) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) src->data[i] = (float)i;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_slice(src, 1, 3, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(dst->len, (size_t)3);
+
+    float expected[3] = { 1.0f, 2.0f, 3.0f };
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// slice the entire buffer
+TEST(buffer_slice_full_range) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) src->data[i] = (float)i;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_slice(src, 0, 3, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// cannot slice with a null source or destination pointer
+TEST(buffer_slice_null_pointer) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_slice(NULL, 0, 1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_slice(src, 0, 1, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot slice into a destination pointer that is already allocated
+TEST(buffer_slice_already_allocated) {
+    cxBuffer* src = NULL;
+    cxBuffer* dst = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&dst, 1), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_slice(src, 0, 1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// cannot slice a zero length range
+TEST(buffer_slice_zero_length) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_slice(src, 0, 0, &dst);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_NULL(dst);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot slice with a start index past the end of the buffer
+TEST(buffer_slice_start_out_of_bounds) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_slice(src, 4, 1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+    ASSERT_NULL(dst);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot slice a range that extends past the end of the buffer
+TEST(buffer_slice_length_out_of_bounds) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_slice(src, 1, 3, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+    ASSERT_NULL(dst);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+static void test__sum_visitor(size_t index, float value, void* ctx) {
+    (void)index;
+    float* sum = (float*)ctx;
+    *sum += value;
+}
+
+// for_each visits every element in order
+TEST(buffer_for_each) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    float sum = 0.0f;
+    cxBufferStatus status = cx_buffer_for_each(buf, test__sum_visitor, &sum);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FLOAT_EQ(sum, 10.0f, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot iterate with a null buffer or visitor
+TEST(buffer_for_each_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    float sum = 0.0f;
+    cxBufferStatus status = cx_buffer_for_each(NULL, test__sum_visitor, &sum);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_for_each(buf, NULL, &sum);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+static float test__sum_reducer(float accumulator, float value, void* ctx) {
+    (void)ctx;
+    return accumulator + value;
+}
+
+// reduce accumulates every element starting from the initial value
+TEST(buffer_reduce) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    float result = 0.0f;
+    cxBufferStatus status = cx_buffer_reduce(buf, test__sum_reducer, 100.0f, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FLOAT_EQ(result, 110.0f, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// reduce over an empty single-element buffer returns the initial value combined with it
+TEST(buffer_reduce_single_element) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 1), CX_BUFFER_OK);
+    buf->data[0] = 42.0f;
+
+    float result = 0.0f;
+    cxBufferStatus status = cx_buffer_reduce(buf, test__sum_reducer, 0.0f, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FLOAT_EQ(result, 42.0f, 1e-5);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot reduce with a null buffer, reducer, or output pointer
+TEST(buffer_reduce_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    float result = 0.0f;
+    cxBufferStatus status = cx_buffer_reduce(NULL, test__sum_reducer, 0.0f, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_reduce(buf, NULL, 0.0f, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_reduce(buf, test__sum_reducer, 0.0f, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+static bool test__even_predicate(float value, void* ctx) {
+    (void)ctx;
+    long v = (long)value;
+    return v % 2 == 0;
+}
+
+// filter keeps only the elements matching the predicate
+TEST(buffer_filter) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) src->data[i] = (float)i;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_filter(src, test__even_predicate, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(dst->len, (size_t)3);
+
+    float expected[3] = { 0.0f, 2.0f, 4.0f };
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// filter that matches nothing is rejected since it would need a zero length buffer
+TEST(buffer_filter_empty_result) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    src->data[0] = 1.0f;
+    src->data[1] = 3.0f;
+    src->data[2] = 5.0f;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_filter(src, test__even_predicate, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_NULL(dst);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot filter with a null source, predicate, or destination pointer
+TEST(buffer_filter_null_pointer) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_filter(NULL, test__even_predicate, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_filter(src, NULL, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_filter(src, test__even_predicate, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot filter into a destination pointer that is already allocated
+TEST(buffer_filter_already_allocated) {
+    cxBuffer* src = NULL;
+    cxBuffer* dst = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&dst, 1), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_filter(src, test__even_predicate, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+#define TEST_SAVE_LOAD_PATH "target/test_buffer_save_load.bin"
+
+// round trip a buffer to disk and back
+TEST(buffer_save_load_round_trip) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 4), CX_BUFFER_OK);
+    for (int i = 0; i < 4; i++) buf->data[i] = (float)i + 0.5f;
+
+    cxBufferStatus status = cx_buffer_save(buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    cxBuffer* loaded = NULL;
+    status = cx_buffer_load(&loaded, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(loaded);
+
+    bool equal = false;
+    ASSERT_EQ(cx_buffer_equal(buf, loaded, &equal), CX_BUFFER_OK);
+    ASSERT_TRUE(equal);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&loaded), CX_BUFFER_OK);
+    remove(TEST_SAVE_LOAD_PATH);
+}
+
+// cannot save with a null buffer or path
+TEST(buffer_save_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_save(NULL, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_save(buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// saving to a path that cannot be opened returns an io error
+TEST(buffer_save_invalid_path) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_save(buf, "target/nonexistent_dir/out.bin");
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot load with a null destination pointer or path
+TEST(buffer_load_null_pointer) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load(NULL, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_load(&buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// cannot load into a destination pointer that is already allocated
+TEST(buffer_load_already_allocated) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_load(&buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// loading from a path that does not exist returns an io error
+TEST(buffer_load_nonexistent_path) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load(&buf, "target/does_not_exist.bin");
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+    ASSERT_NULL(buf);
+}
+
+// loading a truncated file must not leave a partially populated buffer
+TEST(buffer_load_truncated_file) {
+    size_t claimed_len = 10;
+    FILE* file = fopen(TEST_SAVE_LOAD_PATH, "wb");
+    ASSERT_NOT_NULL(file);
+    fwrite(&claimed_len, sizeof(claimed_len), 1, file);
+    float partial = 1.0f;
+    fwrite(&partial, sizeof(partial), 1, file);
+    fclose(file);
+
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load(&buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+    ASSERT_NULL(buf);
+
+    remove(TEST_SAVE_LOAD_PATH);
+}
+
+// loading a file that claims a zero length is rejected
+TEST(buffer_load_zero_length) {
+    size_t claimed_len = 0;
+    FILE* file = fopen(TEST_SAVE_LOAD_PATH, "wb");
+    ASSERT_NOT_NULL(file);
+    fwrite(&claimed_len, sizeof(claimed_len), 1, file);
+    fclose(file);
+
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_load(&buf, TEST_SAVE_LOAD_PATH);
+    ASSERT_EQ(status, CX_BUFFER_IO_ERROR);
+    ASSERT_NULL(buf);
+
+    remove(TEST_SAVE_LOAD_PATH);
+}
+
+#undef TEST_SAVE_LOAD_PATH
+
+// length reports the number of elements in a buffer
+TEST(buffer_length) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 7), CX_BUFFER_OK);
+
+    size_t length = 0;
+    cxBufferStatus status = cx_buffer_length(buf, &length);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(length, (size_t)7);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot get the length with a null buffer or output pointer
+TEST(buffer_length_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    size_t length = 0;
+    cxBufferStatus status = cx_buffer_length(NULL, &length);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_length(buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
 
     ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }

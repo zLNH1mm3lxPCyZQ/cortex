@@ -242,3 +242,161 @@ cxBufferStatus cx_buffer_remove(cxBuffer* buf, size_t index, size_t count) {
     }
     return cx_buffer_resize(buf, buf->len - count);
 }
+
+cxBufferStatus cx_buffer_find(const cxBuffer* buf, float value, size_t* index) {
+    if (!buf || !index) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t i = 0; i < buf->len; i++) {
+        if (buf->data[i] == value) {
+            *index = i;
+            return CX_BUFFER_OK;
+        }
+    }
+    return CX_BUFFER_NOT_FOUND;
+}
+
+cxBufferStatus cx_buffer_contains(const cxBuffer* buf, float value, bool* found) {
+    if (!buf || !found) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    size_t index;
+    cxBufferStatus status = cx_buffer_find(buf, value, &index);
+    if (status == CX_BUFFER_NOT_FOUND) {
+        *found = false;
+        return CX_BUFFER_OK;
+    }
+    if (status != CX_BUFFER_OK) return status;
+
+    *found = true;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_equal(const cxBuffer* a, const cxBuffer* b, bool* equal) {
+    if (!a || !b || !equal) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(a) != CX_BUFFER_OK ||
+        cx_buffer_is_valid(b) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    if (a->len != b->len) {
+        *equal = false;
+        return CX_BUFFER_OK;
+    }
+
+    *equal = a == b || memcmp(a->data, b->data, a->len * sizeof(*a->data)) == 0;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_slice(const cxBuffer* src, size_t start, size_t len, cxBuffer** dst) {
+    if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+    if (len == 0) return CX_BUFFER_INVALID_LENGTH;
+    if (start > src->len || len > src->len - start) return CX_BUFFER_OUT_OF_BOUNDS;
+
+    cxBufferStatus status = cx_buffer_allocate(dst, len);
+    if (status != CX_BUFFER_OK) return status;
+
+    memcpy((*dst)->data, src->data + start, len * sizeof(*src->data));
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_for_each(const cxBuffer* buf, cx_buffer_visitor visitor, void* ctx) {
+    if (!buf || !visitor) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t i = 0; i < buf->len; i++) {
+        visitor(i, buf->data[i], ctx);
+    }
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_filter(const cxBuffer* src, cx_buffer_predicate pred, void* ctx, cxBuffer** dst) {
+    if (!src || !pred || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+
+    size_t count = 0;
+    for (size_t i = 0; i < src->len; i++) {
+        if (pred(src->data[i], ctx)) count++;
+    }
+    if (count == 0) return CX_BUFFER_INVALID_LENGTH;
+
+    cxBufferStatus status = cx_buffer_allocate(dst, count);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t i = 0, j = 0; i < src->len; i++) {
+        if (pred(src->data[i], ctx)) {
+            (*dst)->data[j++] = src->data[i];
+        }
+    }
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_reduce(const cxBuffer* buf, cx_buffer_reducer reducer, float initial, void* ctx, float* result) {
+    if (!buf || !reducer || !result) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    float accumulator = initial;
+    for (size_t i = 0; i < buf->len; i++) {
+        accumulator = reducer(accumulator, buf->data[i], ctx);
+    }
+
+    *result = accumulator;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_save(const cxBuffer* buf, const char* path) {
+    if (!buf || !path) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    FILE* file = fopen(path, "wb");
+    if (!file) return CX_BUFFER_IO_ERROR;
+
+    cxBufferStatus status = CX_BUFFER_OK;
+    if (fwrite(&buf->len, sizeof(buf->len), 1, file) != 1 ||
+        fwrite(buf->data, sizeof(*buf->data), buf->len, file) != buf->len) {
+        status = CX_BUFFER_IO_ERROR;
+    }
+
+    fclose(file);
+    return status;
+}
+
+cxBufferStatus cx_buffer_load(cxBuffer** buf, const char* path) {
+    if (!buf || !path) return CX_BUFFER_ERR_NULL_POINTER;
+    if (*buf) return CX_BUFFER_ALREADY_ALLOCATED;
+
+    FILE* file = fopen(path, "rb");
+    if (!file) return CX_BUFFER_IO_ERROR;
+
+    size_t len = 0;
+    if (fread(&len, sizeof(len), 1, file) != 1 || len == 0) {
+        fclose(file);
+        return CX_BUFFER_IO_ERROR;
+    }
+
+    // cx_buffer_allocate rejects a len too large to safely multiply by sizeof(float)
+    cxBufferStatus status = cx_buffer_allocate(buf, len);
+    if (status != CX_BUFFER_OK) {
+        fclose(file);
+        return status;
+    }
+
+    // a truncated or corrupted file must not leave data partially populated
+    if (fread((*buf)->data, sizeof(*(*buf)->data), len, file) != len) {
+        cx_buffer_deallocate(buf);
+        fclose(file);
+        return CX_BUFFER_IO_ERROR;
+    }
+
+    fclose(file);
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_length(const cxBuffer* buf, size_t* length) {
+    if (!buf || !length) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    *length = buf->len;
+    return CX_BUFFER_OK;
+}
