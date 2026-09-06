@@ -300,6 +300,26 @@ cxBufferStatus cx_buffer_slice(const cxBuffer* src, size_t start, size_t len, cx
     return CX_BUFFER_OK;
 }
 
+cxBufferStatus cx_buffer_gather(const cxBuffer* src, const size_t* indices, size_t count, cxBuffer** dst) {
+    if (!src || !indices || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+    if (count == 0) return CX_BUFFER_INVALID_LENGTH;
+
+    // validate every index before allocating, so a bad index never leaves a partial result
+    for (size_t i = 0; i < count; i++) {
+        if (indices[i] >= src->len) return CX_BUFFER_OUT_OF_BOUNDS;
+    }
+
+    cxBufferStatus status = cx_buffer_allocate(dst, count);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t i = 0; i < count; i++) {
+        (*dst)->data[i] = src->data[indices[i]];
+    }
+    return CX_BUFFER_OK;
+}
+
 cxBufferStatus cx_buffer_for_each(const cxBuffer* buf, cx_buffer_visitor visitor, void* ctx) {
     if (!buf || !visitor) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;

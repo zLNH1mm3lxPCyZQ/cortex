@@ -45,6 +45,7 @@ cxBufferStatus cx_buffer_find(const cxBuffer* buf, float value, size_t* index);
 cxBufferStatus cx_buffer_contains(const cxBuffer* buf, float value, bool* found);
 cxBufferStatus cx_buffer_equal(const cxBuffer* a, const cxBuffer* b, bool* equal);
 cxBufferStatus cx_buffer_slice(const cxBuffer* src, size_t start, size_t len, cxBuffer** dst);
+cxBufferStatus cx_buffer_gather(const cxBuffer* src, const size_t* indices, size_t count, cxBuffer** dst);
 
 typedef void (*cx_buffer_visitor)(size_t index, float value, void* ctx);
 cxBufferStatus cx_buffer_for_each(const cxBuffer* buf, cx_buffer_visitor visitor, void* ctx);

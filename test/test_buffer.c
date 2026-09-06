@@ -1371,6 +1371,108 @@ TEST(buffer_slice_length_out_of_bounds) {
     ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
 }
 
+// gather elements at arbitrary, non-contiguous indices
+TEST(buffer_gather) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 7), CX_BUFFER_OK);
+    for (int i = 0; i < 7; i++) src->data[i] = (float)i;
+
+    size_t indices[] = { 0, 4, 6 };
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_gather(src, indices, 3, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(dst->len, (size_t)3);
+
+    float expected[3] = { 0.0f, 4.0f, 6.0f };
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// gather allows repeated and out-of-order indices, unlike slice
+TEST(buffer_gather_repeated_and_unordered) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 4), CX_BUFFER_OK);
+    for (int i = 0; i < 4; i++) src->data[i] = (float)i;
+
+    size_t indices[] = { 3, 0, 3, 1 };
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_gather(src, indices, 4, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    float expected[4] = { 3.0f, 0.0f, 3.0f, 1.0f };
+    for (int i = 0; i < 4; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], expected[i], 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// cannot gather with a null source, index array, or destination pointer
+TEST(buffer_gather_null_pointer) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    size_t indices[] = { 0 };
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_gather(NULL, indices, 1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_gather(src, NULL, 1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_gather(src, indices, 1, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot gather into a destination pointer that is already allocated
+TEST(buffer_gather_already_allocated) {
+    cxBuffer* src = NULL;
+    cxBuffer* dst = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&dst, 1), CX_BUFFER_OK);
+    size_t indices[] = { 0 };
+
+    cxBufferStatus status = cx_buffer_gather(src, indices, 1, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// cannot gather with a zero count
+TEST(buffer_gather_zero_count) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    size_t indices[] = { 0 };
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_gather(src, indices, 0, &dst);
+    ASSERT_EQ(status, CX_BUFFER_INVALID_LENGTH);
+    ASSERT_NULL(dst);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// gather rejects any out-of-bounds index without allocating a partial result
+TEST(buffer_gather_out_of_bounds) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    size_t indices[] = { 0, 5, 1 };
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_gather(src, indices, 3, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OUT_OF_BOUNDS);
+    ASSERT_NULL(dst);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
 static void test__sum_visitor(size_t index, float value, void* ctx) {
     (void)index;
     float* sum = (float*)ctx;
