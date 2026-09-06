@@ -1527,6 +1527,266 @@ TEST(buffer_filter_already_allocated) {
     ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
 }
 
+// find_if returns the index of the first element matching the predicate
+TEST(buffer_find_if) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    size_t index = 0;
+    cxBufferStatus status = cx_buffer_find_if(buf, test__even_predicate, NULL, &index);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(index, (size_t)0);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// find_if returns not found when no element matches the predicate
+TEST(buffer_find_if_not_found) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    buf->data[0] = 1.0f;
+    buf->data[1] = 3.0f;
+    buf->data[2] = 5.0f;
+
+    size_t index = 0;
+    cxBufferStatus status = cx_buffer_find_if(buf, test__even_predicate, NULL, &index);
+    ASSERT_EQ(status, CX_BUFFER_NOT_FOUND);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot find_if with a null buffer, predicate, or output pointer
+TEST(buffer_find_if_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    size_t index = 0;
+    cxBufferStatus status = cx_buffer_find_if(NULL, test__even_predicate, NULL, &index);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_find_if(buf, NULL, NULL, &index);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_find_if(buf, test__even_predicate, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// count_if counts every element matching the predicate
+TEST(buffer_count_if) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 5), CX_BUFFER_OK);
+    for (int i = 0; i < 5; i++) buf->data[i] = (float)i;
+
+    size_t count = 0;
+    cxBufferStatus status = cx_buffer_count_if(buf, test__even_predicate, NULL, &count);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(count, (size_t)3);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// count_if returns zero when no element matches the predicate
+TEST(buffer_count_if_no_matches) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    buf->data[0] = 1.0f;
+    buf->data[1] = 3.0f;
+    buf->data[2] = 5.0f;
+
+    size_t count = 0;
+    cxBufferStatus status = cx_buffer_count_if(buf, test__even_predicate, NULL, &count);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_EQ(count, (size_t)0);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot count_if with a null buffer, predicate, or output pointer
+TEST(buffer_count_if_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    size_t count = 0;
+    cxBufferStatus status = cx_buffer_count_if(NULL, test__even_predicate, NULL, &count);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_count_if(buf, NULL, NULL, &count);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_count_if(buf, test__even_predicate, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// any reports true when at least one element matches the predicate
+TEST(buffer_any_true) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    buf->data[0] = 1.0f;
+    buf->data[1] = 2.0f;
+    buf->data[2] = 3.0f;
+
+    bool result = false;
+    cxBufferStatus status = cx_buffer_any(buf, test__even_predicate, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_TRUE(result);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// any reports false when no element matches the predicate
+TEST(buffer_any_false) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    buf->data[0] = 1.0f;
+    buf->data[1] = 3.0f;
+    buf->data[2] = 5.0f;
+
+    bool result = true;
+    cxBufferStatus status = cx_buffer_any(buf, test__even_predicate, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FALSE(result);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot check any with a null buffer, predicate, or output pointer
+TEST(buffer_any_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    bool result = false;
+    cxBufferStatus status = cx_buffer_any(NULL, test__even_predicate, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_any(buf, NULL, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_any(buf, test__even_predicate, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// all reports true when every element matches the predicate
+TEST(buffer_all_true) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    buf->data[0] = 2.0f;
+    buf->data[1] = 4.0f;
+    buf->data[2] = 6.0f;
+
+    bool result = false;
+    cxBufferStatus status = cx_buffer_all(buf, test__even_predicate, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_TRUE(result);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// all reports false when at least one element does not match the predicate
+TEST(buffer_all_false) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+    buf->data[0] = 2.0f;
+    buf->data[1] = 3.0f;
+    buf->data[2] = 4.0f;
+
+    bool result = true;
+    cxBufferStatus status = cx_buffer_all(buf, test__even_predicate, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_FALSE(result);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot check all with a null buffer, predicate, or output pointer
+TEST(buffer_all_null_pointer) {
+    cxBuffer* buf = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&buf, 3), CX_BUFFER_OK);
+
+    bool result = false;
+    cxBufferStatus status = cx_buffer_all(NULL, test__even_predicate, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_all(buf, NULL, NULL, &result);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_all(buf, test__even_predicate, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+static float test__double_mapper(float value, void* ctx) {
+    (void)ctx;
+    return value * 2.0f;
+}
+
+// map transforms every element into a new buffer of the same length
+TEST(buffer_map) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 4), CX_BUFFER_OK);
+    for (int i = 0; i < 4; i++) src->data[i] = (float)i;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_map(src, test__double_mapper, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(dst->len, src->len);
+
+    for (int i = 0; i < 4; i++) {
+        ASSERT_FLOAT_EQ(dst->data[i], (float)i * 2.0f, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// map leaves the source buffer untouched
+TEST(buffer_map_does_not_mutate_source) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    for (int i = 0; i < 3; i++) src->data[i] = (float)i;
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_map(src, test__double_mapper, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (int i = 0; i < 3; i++) {
+        ASSERT_FLOAT_EQ(src->data[i], (float)i, 1e-5);
+    }
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
+// cannot map with a null source, mapper, or destination pointer
+TEST(buffer_map_null_pointer) {
+    cxBuffer* src = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+
+    cxBuffer* dst = NULL;
+    cxBufferStatus status = cx_buffer_map(NULL, test__double_mapper, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_map(src, NULL, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    status = cx_buffer_map(src, test__double_mapper, NULL, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+}
+
+// cannot map into a destination pointer that is already allocated
+TEST(buffer_map_already_allocated) {
+    cxBuffer* src = NULL;
+    cxBuffer* dst = NULL;
+    ASSERT_EQ(cx_buffer_allocate(&src, 3), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_allocate(&dst, 1), CX_BUFFER_OK);
+
+    cxBufferStatus status = cx_buffer_map(src, test__double_mapper, NULL, &dst);
+    ASSERT_EQ(status, CX_BUFFER_ALREADY_ALLOCATED);
+
+    ASSERT_EQ(cx_buffer_deallocate(&src), CX_BUFFER_OK);
+    ASSERT_EQ(cx_buffer_deallocate(&dst), CX_BUFFER_OK);
+}
+
 #define TEST_SAVE_LOAD_PATH "target/test_buffer_save_load.bin"
 
 // round trip a buffer to disk and back

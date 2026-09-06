@@ -52,9 +52,16 @@ cxBufferStatus cx_buffer_for_each(const cxBuffer* buf, cx_buffer_visitor visitor
 
 typedef bool (*cx_buffer_predicate)(float value, void* ctx);
 cxBufferStatus cx_buffer_filter(const cxBuffer* src, cx_buffer_predicate pred, void* ctx, cxBuffer** dst);
+cxBufferStatus cx_buffer_find_if(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, size_t* index);
+cxBufferStatus cx_buffer_count_if(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, size_t* count);
+cxBufferStatus cx_buffer_any(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, bool* result);
+cxBufferStatus cx_buffer_all(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, bool* result);
 
 typedef float (*cx_buffer_reducer)(float accumulator, float value, void* ctx);
 cxBufferStatus cx_buffer_reduce(const cxBuffer* buf, cx_buffer_reducer reducer, float initial, void* ctx, float* result);
+
+typedef float (*cx_buffer_mapper)(float value, void* ctx);
+cxBufferStatus cx_buffer_map(const cxBuffer* src, cx_buffer_mapper mapper, void* ctx, cxBuffer** dst);
 
 cxBufferStatus cx_buffer_save(const cxBuffer* buf, const char* path);
 cxBufferStatus cx_buffer_load(cxBuffer** buf, const char* path);

@@ -332,6 +332,62 @@ cxBufferStatus cx_buffer_filter(const cxBuffer* src, cx_buffer_predicate pred, v
     return CX_BUFFER_OK;
 }
 
+cxBufferStatus cx_buffer_find_if(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, size_t* index) {
+    if (!buf || !pred || !index) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t i = 0; i < buf->len; i++) {
+        if (pred(buf->data[i], ctx)) {
+            *index = i;
+            return CX_BUFFER_OK;
+        }
+    }
+    return CX_BUFFER_NOT_FOUND;
+}
+
+cxBufferStatus cx_buffer_count_if(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, size_t* count) {
+    if (!buf || !pred || !count) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    size_t matches = 0;
+    for (size_t i = 0; i < buf->len; i++) {
+        if (pred(buf->data[i], ctx)) matches++;
+    }
+
+    *count = matches;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_any(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, bool* result) {
+    if (!buf || !pred || !result) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t i = 0; i < buf->len; i++) {
+        if (pred(buf->data[i], ctx)) {
+            *result = true;
+            return CX_BUFFER_OK;
+        }
+    }
+
+    *result = false;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_all(const cxBuffer* buf, cx_buffer_predicate pred, void* ctx, bool* result) {
+    if (!buf || !pred || !result) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    for (size_t i = 0; i < buf->len; i++) {
+        if (!pred(buf->data[i], ctx)) {
+            *result = false;
+            return CX_BUFFER_OK;
+        }
+    }
+
+    *result = true;
+    return CX_BUFFER_OK;
+}
+
 cxBufferStatus cx_buffer_reduce(const cxBuffer* buf, cx_buffer_reducer reducer, float initial, void* ctx, float* result) {
     if (!buf || !reducer || !result) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
@@ -342,6 +398,20 @@ cxBufferStatus cx_buffer_reduce(const cxBuffer* buf, cx_buffer_reducer reducer, 
     }
 
     *result = accumulator;
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_map(const cxBuffer* src, cx_buffer_mapper mapper, void* ctx, cxBuffer** dst) {
+    if (!src || !mapper || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+
+    cxBufferStatus status = cx_buffer_allocate(dst, src->len);
+    if (status != CX_BUFFER_OK) return status;
+
+    for (size_t i = 0; i < src->len; i++) {
+        (*dst)->data[i] = mapper(src->data[i], ctx);
+    }
     return CX_BUFFER_OK;
 }
 
