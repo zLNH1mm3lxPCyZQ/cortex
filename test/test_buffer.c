@@ -1,6 +1,8 @@
 #include "test.h"
 #include "buffer.h"
 
+#include <stdlib.h>
+
 // a null pointer should always be considered as invalid
 TEST(buffer_is_valid_null) {
     ASSERT_EQ(cx_buffer_is_valid(NULL), CX_BUFFER_INVALID_BUFFER);
@@ -76,6 +78,84 @@ TEST(buffer_deallocation_null_pointer) {
     cxBuffer* buf = NULL;
     cxBufferStatus status = cx_buffer_deallocate(&buf);
     ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// buffer from array common use
+TEST(buffer_from_array) {
+    float src[10];
+    for (size_t i = 0; i < 10; i++) {
+        src[i] = (float)i;
+    }
+
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_from_array(src, &buf, 10);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(buf);
+    for (size_t i = 0; i < 10; i++) {
+        ASSERT_FLOAT_EQ(buf->data[i], (float)i, 1e-5);
+    }
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot create a buffer from a null array
+TEST(buffer_from_array_null_pointer) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_from_array(NULL, &buf, 10);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+    ASSERT_NULL(buf);
+}
+
+// cannot create a buffer from a null destination pointer
+TEST(buffer_from_array_null_destination) {
+    float src[10];
+    for (size_t i = 0; i < 10; i++) {
+        src[i] = (float)i;
+    }
+
+    cxBufferStatus status = cx_buffer_from_array(src, NULL, 10);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// buffer to array common use
+TEST(buffer_to_array) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 10);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    for (size_t i = 0; i < 10; i++) {
+        buf->data[i] = (float)i;
+    }
+
+    float* arr = NULL;
+    status = cx_buffer_to_array(buf, &arr);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+    ASSERT_NOT_NULL(arr);
+    for (size_t i = 0; i < 10; i++) {
+        ASSERT_FLOAT_EQ(arr[i], (float)i, 1e-5);
+    }
+    free(arr);
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
+}
+
+// cannot convert a null buffer to an array
+TEST(buffer_to_array_null_pointer) {
+    float* arr = NULL;
+    cxBufferStatus status = cx_buffer_to_array(NULL, &arr);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+}
+
+// cannot convert a buffer to an array with a null destination pointer
+TEST(buffer_to_array_null_destination) {
+    cxBuffer* buf = NULL;
+    cxBufferStatus status = cx_buffer_allocate(&buf, 10);
+    ASSERT_NOT_NULL(buf);
+    ASSERT_EQ(status, CX_BUFFER_OK);
+
+    status = cx_buffer_to_array(buf, NULL);
+    ASSERT_EQ(status, CX_BUFFER_ERR_NULL_POINTER);
+
+    ASSERT_EQ(cx_buffer_deallocate(&buf), CX_BUFFER_OK);
 }
 
 // buffer write common use

@@ -23,6 +23,8 @@ cxBufferStatus cx_buffer_is_valid(const cxBuffer* buf);
 cxBufferStatus cx_buffer_print(const cxBuffer* buf);
 cxBufferStatus cx_buffer_allocate(cxBuffer** out, size_t len);
 cxBufferStatus cx_buffer_deallocate(cxBuffer** buf);
+cxBufferStatus cx_buffer_from_array(const float* src, cxBuffer** dst, size_t len);
+cxBufferStatus cx_buffer_to_array(const cxBuffer* src, float** dst);
 cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value);
 cxBufferStatus cx_buffer_read(cxBuffer* buf, size_t index, float* value);
 cxBufferStatus cx_buffer_copy(const cxBuffer* src, cxBuffer* dst, size_t start_offset);

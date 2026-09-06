@@ -54,6 +54,29 @@ cxBufferStatus cx_buffer_deallocate(cxBuffer** buf) {
     return CX_BUFFER_OK;
 }
 
+cxBufferStatus cx_buffer_from_array(const float* src, cxBuffer** dst, size_t len) {
+    if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (*dst) return CX_BUFFER_ALREADY_ALLOCATED;
+    if (len == 0 || len > SIZE_MAX / sizeof(float)) return CX_BUFFER_INVALID_LENGTH;
+
+    cxBufferStatus status = cx_buffer_allocate(dst, len);
+    if (status != CX_BUFFER_OK) return status;
+
+    memcpy((*dst)->data, src, len * sizeof(float));
+    return CX_BUFFER_OK;
+}
+
+cxBufferStatus cx_buffer_to_array(const cxBuffer* src, float** dst) {
+    if (!src || !dst) return CX_BUFFER_ERR_NULL_POINTER;
+    if (cx_buffer_is_valid(src) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
+
+    *dst = malloc(src->len * sizeof(float));
+    if (!*dst) return CX_BUFFER_ALLOCATION_FAILED;
+
+    memcpy(*dst, src->data, src->len * sizeof(float));
+    return CX_BUFFER_OK;
+}
+
 cxBufferStatus cx_buffer_write(cxBuffer* buf, size_t index, float new_value) {
     if (!buf) return CX_BUFFER_ERR_NULL_POINTER;
     if (cx_buffer_is_valid(buf) != CX_BUFFER_OK) return CX_BUFFER_INVALID_BUFFER;
