@@ -12,3 +12,8 @@ Build the static library:
 ```sh
 make lib
 ```
+
+Run the tests:
+```sh
+make test
+```
